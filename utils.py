@@ -139,12 +139,20 @@ def cost_function(fraction, inputs, site, scenario, debug, sitename):
   
   return loss
 
-def writeReport(output_worksheet, site, scenario, scenario_name, data, initial_row):
+def writeReport(output_worksheet, site, sitename, scenario, scenario_name, data, initial_row):
 
   title_reference = gspread.utils.rowcol_to_a1(initial_row, 1)
   bad_color = gspread_formatting.cellFormat(backgroundColor=gspread_formatting.Color(0.576, 0.80, 0.918))
   good_color = gspread_formatting.cellFormat(backgroundColor=gspread_formatting.Color(0.851, 0.918, 0.828))
 
+  additional_storage = 0
+  additional_computing = 0
+  try:
+    additional_storage = scenario['storage'][sitename.lower()][0]
+    additional_computing = scenario['computing'][sitename.lower()][0]
+  except:
+    pass
+  
   output_worksheet.update_cell(initial_row, 1, scenario_name)
   output_worksheet.format(title_reference, {'textFormat': {'bold': True}})
   output_worksheet.update_cell(initial_row, 3, 'Initial')
@@ -155,13 +163,13 @@ def writeReport(output_worksheet, site, scenario, scenario_name, data, initial_r
   output_worksheet.update_cell(initial_row+2, 2, 'Target (TB)')
   output_worksheet.update_cell(initial_row+3, 2, 'Budget ($)')
   output_worksheet.update_cell(initial_row+4, 2, 'Junk (TB)')
-  output_worksheet.update_cell(initial_row+1, 3, site['storage']['initial'][0])
+  output_worksheet.update_cell(initial_row+1, 3, site['storage']['initial'][0]+additional_storage)
   output_worksheet.update_cell(initial_row+5, 1, 'Computing')
   output_worksheet.update_cell(initial_row+6, 2, 'Total (HS23)')
   output_worksheet.update_cell(initial_row+7, 2, 'Target (HS23)')
   output_worksheet.update_cell(initial_row+8, 2, 'Budget ($)')
   output_worksheet.update_cell(initial_row+9, 2, 'Junk (HS23)')
-  output_worksheet.update_cell(initial_row+6, 3, site['computing']['initial'][0])
+  output_worksheet.update_cell(initial_row+6, 3, site['computing']['initial'][0]+additional_computing)
   for i, year in enumerate(data):
     output_worksheet.update_cell(initial_row+1, i+4, year['storage'])
 
@@ -227,7 +235,7 @@ def optimize(spreadsheet, sites, outputs):
         for year in debug:
           data.append({'storage_budget': year[0], 'storage_target': year[1], 'storage': year[2], 'storage_junk': year[3], \
           'computing_budget': year[4], 'computing_target': year[5], 'computing': year[6], 'computing_junk': year[7]})
-        writeReport(output, site, scenario, scenario_sheet.title, data, line)
+        writeReport(output, site, sitename, scenario, scenario_sheet.title, data, line)
         scenarios_debug.append([scenario['resources']['years'],debug])
         line = line + 11
     retval.append(scenarios_debug)
