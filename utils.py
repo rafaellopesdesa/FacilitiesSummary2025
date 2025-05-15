@@ -45,6 +45,8 @@ def readSite(site_sheet):
     row = row + 1
     if 'initial' in key.lower():
       site[resource.lower()]['initial'] = [float(val) for val in site_sheet.row_values(row)[2:]]
+    if 'penalty' in key.lower():
+      site[resource.lower()]['penalty'] = [float(val) for val in site_sheet.row_values(row)[2:]]
     if 'retirement' in key.lower():
       site[resource.lower()]['retirement'] = [float(val) for val in site_sheet.row_values(row)[2:]]
     if 'years' in key.lower():
@@ -87,6 +89,9 @@ def cost_function(fraction, inputs, site, scenario, debug, sitename):
   storage = site['storage']['initial'][0]
   computing = site['computing']['initial'][0]
   size = site['resources']['size'][0]
+
+  storage_penalty = site['storage']['penalty'][0]
+  computing_penalty = site['computing']['penalty'][0]
 
   additional_storage = 0
   additional_computing = 0
@@ -131,8 +136,8 @@ def cost_function(fraction, inputs, site, scenario, debug, sitename):
     
     loss += ((storage_target - storage)/storage_target)**2
     loss += ((computing_target - computing)/computing_target)**2
-    loss += 0.5*(storage_oldjunk/storage_target)**2
-    loss += 0.5*(computing_oldjunk/computing_target)**2
+    loss += storage_penalty*(storage_oldjunk/storage_target)**2
+    loss += computing_penalty*(computing_oldjunk/computing_target)**2
 
     debug.append((storage_fraction*budget,storage_target, storage, storage_oldjunk, \
     (1-storage_fraction)*budget, computing_target, computing, computing_oldjunk))
