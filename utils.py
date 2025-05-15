@@ -59,6 +59,9 @@ def readScenario(scenario_sheet):
   scenario = {}
   scenario['cost'] = {}
   scenario['resources'] = {}
+  scenario['computing'] = {}
+  scenario['storage'] = {}
+
   resources = scenario_sheet.col_values(1)
   keys = scenario_sheet.col_values(2)
 
@@ -70,9 +73,13 @@ def readScenario(scenario_sheet):
       scenario[resource.lower()]['years'] = [float(val) for val in scenario_sheet.row_values(row)[2:]]
     if 'budget' in key.lower():
       scenario[resource.lower()]['budget'] = [float(val) for val in scenario_sheet.row_values(row)[2:]]
+    if 'computing' in resource.lower():
+      scenario[resource.lower()][key.lower()] = [float(val) for val in scenario_sheet.row_values(row)[2:]]
+    if 'storage' in resource.lower():
+      scenario[resource.lower()][key.lower()] = [float(val) for val in scenario_sheet.row_values(row)[2:]]
   return scenario
 
-def cost_function(fraction, inputs, site, scenario, debug):
+def cost_function(fraction, inputs, site, scenario, debug, sitename):
 
   loss = 0.0
   debug.clear()
@@ -80,6 +87,17 @@ def cost_function(fraction, inputs, site, scenario, debug):
   storage = site['storage']['initial'][0]
   computing = site['computing']['initial'][0]
   size = site['resources']['size'][0]
+
+  additional_storage = 0
+  additional_computing = 0
+  try:
+    additional_storage = scenario['storage'][sitename.lower()][0]
+    additional_computing = scenario['computing'][sitename.lower()][0]
+  except:
+    pass
+  
+  storage = storage + additional_storage
+  computing = computing + additional_computing
 
   storage_oldjunk = 0
   computing_oldjunk = 0
@@ -121,7 +139,7 @@ def cost_function(fraction, inputs, site, scenario, debug):
   
   return loss
 
-def writeReport(output_worksheet, site, scenario, scenario_name, debug, initial_row):
+def writeReport(output_worksheet, site, scenario, scenario_name, data, initial_row):
 
   title_reference = gspread.utils.rowcol_to_a1(initial_row, 1)
   bad_color = gspread_formatting.cellFormat(backgroundColor=gspread_formatting.Color(0.576, 0.80, 0.918))
@@ -144,39 +162,39 @@ def writeReport(output_worksheet, site, scenario, scenario_name, debug, initial_
   output_worksheet.update_cell(initial_row+8, 2, 'Budget ($)')
   output_worksheet.update_cell(initial_row+9, 2, 'Junk (HS23)')
   output_worksheet.update_cell(initial_row+6, 3, site['computing']['initial'][0])
-  for i, data in enumerate(debug):
-    output_worksheet.update_cell(initial_row+1, i+4, data[2])
+  for i, year in enumerate(data):
+    output_worksheet.update_cell(initial_row+1, i+4, year['storage'])
 
     cell_reference = gspread.utils.rowcol_to_a1(initial_row+1, i+4)
-    if data[2] < data[1]:
+    if year['storage'] < year['storage_target']:
       gspread_formatting.format_cell_range(output_worksheet, cell_reference, bad_color)
     else:
       gspread_formatting.format_cell_range(output_worksheet, cell_reference, good_color)
 
-    output_worksheet.update_cell(initial_row+2, i+4, data[1])
-    output_worksheet.update_cell(initial_row+3, i+4, data[0])
-    output_worksheet.update_cell(initial_row+4, i+4, data[3])
+    output_worksheet.update_cell(initial_row+2, i+4, year['storage_target'])
+    output_worksheet.update_cell(initial_row+3, i+4, year['storage_budget'])
+    output_worksheet.update_cell(initial_row+4, i+4, year['storage_junk'])
     
     cell_reference = gspread.utils.rowcol_to_a1(initial_row+4, i+4)
-    if data[3] > 0.1*data[1]:
+    if year['storage_junk'] > 0.1*year['storage_target']:
       gspread_formatting.format_cell_range(output_worksheet, cell_reference, bad_color)
     else:
       gspread_formatting.format_cell_range(output_worksheet, cell_reference, good_color)
     
-    output_worksheet.update_cell(initial_row+6, i+4, data[6])
+    output_worksheet.update_cell(initial_row+6, i+4, year['computing'])
     
     cell_reference = gspread.utils.rowcol_to_a1(initial_row+6, i+4)
-    if data[6] < data[5]:
+    if year['computing'] < year['computing_target']:
       gspread_formatting.format_cell_range(output_worksheet, cell_reference, bad_color)
     else:
       gspread_formatting.format_cell_range(output_worksheet, cell_reference, good_color)
     
-    output_worksheet.update_cell(initial_row+7, i+4, data[5])
-    output_worksheet.update_cell(initial_row+8, i+4, data[4])
-    output_worksheet.update_cell(initial_row+9, i+4, data[7])
+    output_worksheet.update_cell(initial_row+7, i+4, year['computing_target'])
+    output_worksheet.update_cell(initial_row+8, i+4, year['computing_budget'])
+    output_worksheet.update_cell(initial_row+9, i+4, year['computing_junk'])
 
     cell_reference = gspread.utils.rowcol_to_a1(initial_row+9, i+4)
-    if data[7] > 0.1*data[5]:
+    if year['computing_junk'] > 0.1*year['computing']:
       gspread_formatting.format_cell_range(output_worksheet, cell_reference, bad_color)
     else:
       gspread_formatting.format_cell_range(output_worksheet, cell_reference, good_color)
@@ -186,10 +204,10 @@ def optimize(spreadsheet, sites, outputs):
   inputs = readInputs(spreadsheet.worksheet('Inputs'))
   retval = []
 
-  for site, output in zip(sites, outputs):
+  for sitename, output in zip(sites, outputs):
 
     sheets = spreadsheet.worksheets()
-    site = readSite(spreadsheet.worksheet(site))
+    site = readSite(spreadsheet.worksheet(sitename))
     output = spreadsheet.worksheet(output)
     output.clear()
 
@@ -203,8 +221,13 @@ def optimize(spreadsheet, sites, outputs):
         years = len(scenario['resources']['years'])
         fractions = years*[0.5]
         bounds = years*[(0, 1)]
-        minimize(cost_function, fractions, bounds=bounds, args=(inputs, site, scenario, debug))
-        writeReport(output, site, scenario, scenario_sheet.title, debug, line)
+        minimize(cost_function, fractions, bounds=bounds, args=(inputs, site, scenario, debug, sitename))
+        
+        data = []
+        for year in debug:
+          data.append({'storage_budget': year[0], 'storage_target': year[1], 'storage': year[2], 'storage_junk': year[3], \
+          'computing_budget': year[4], 'computing_target': year[5], 'computing': year[6], 'computing_junk': year[7]})
+        writeReport(output, site, scenario, scenario_sheet.title, data, line)
         scenarios_debug.append([scenario['resources']['years'],debug])
         line = line + 11
     retval.append(scenarios_debug)
@@ -240,7 +263,7 @@ def multicolor_ylabel(ax,list_of_strings,list_of_colors,axis='x',anchorpad=0,**k
 def makeSummary(debug, sitename, titles, filename):
 
   years = debug[0][0][0]
-  fig, axs = plt.subplots(len(debug),len(debug[0]), figsize=(14, 5*len(debug)), squeeze=False)
+  fig, axs = plt.subplots(len(debug),len(debug[0]), figsize=(7*len(debug[0]), 5), squeeze=False)
   for j, row in enumerate(axs):
     
     for i, ax in enumerate(row):
