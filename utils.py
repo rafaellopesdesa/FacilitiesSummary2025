@@ -300,7 +300,7 @@ def makeSummary(debug, sitename, titles, filename):
       ax.xaxis.set_major_locator(mticker.MaxNLocator(integer=True))
       ax.set_ylim([0,1.1*max(computing_ratio)])
       ax.set_title('Scenario {}'.format(i+1))
-      multicolor_ylabel(ax,['Storage / Target', ' and ', 'Computing / Target'],['blue', 'black', 'orange'], 'y')
+      multicolor_ylabel(ax,['Storage / Target', ' and ', 'Computing / Target'],['orange', 'black', 'blue'], 'y')
       legend_elements = [
         Line2D([0], [0], color='black', linestyle='-', label='Total'),
         Line2D([0], [0], color='black', linestyle='--', label='Out-of-warranty'),
