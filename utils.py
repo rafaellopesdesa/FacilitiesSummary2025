@@ -244,7 +244,7 @@ def optimize(spreadsheet, sites, outputs):
         scenarios_debug.append([scenario['resources']['years'],debug])
         line = line + 11
     retval.append(scenarios_debug)
-    time.sleep(15)
+    time.sleep(60)
   return retval
 
 def multicolor_ylabel(ax,list_of_strings,list_of_colors,axis='x',anchorpad=0,**kw):
