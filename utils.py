@@ -20,7 +20,7 @@ def readInputs(inputs_sheet):
   row = 0
   for resource,key in zip(resources,keys):
     row = row + 1
-    if 'target' in key.lower():
+    if 'pledge' in key.lower():
       inputs[resource.lower()]['target'] = [float(val) for val in inputs_sheet.row_values(row)[2:]]
     elif 'cost' in key.lower():
       inputs[resource.lower()]['cost'] = [float(val) for val in inputs_sheet.row_values(row)[2:]]
@@ -89,6 +89,9 @@ def cost_function(fraction, inputs, site, scenario, debug, sitename):
   storage = site['storage']['initial'][0]
   computing = site['computing']['initial'][0]
   size = site['resources']['size'][0]
+  
+  computing_factor = scenario['computing']['factor'][0]
+  storage_factor = scenario['storage']['factor'][0]
 
   storage_penalty = site['storage']['penalty'][0]
   computing_penalty = site['computing']['penalty'][0]
@@ -117,11 +120,11 @@ def cost_function(fraction, inputs, site, scenario, debug, sitename):
 
     storage_cost = inputs['storage']['cost'][inputs_index]
     storage_retirement = site['storage']['retirement'][site_index] + storage_oldjunk
-    storage_target = inputs['storage']['target'][inputs_index]*size
+    storage_target = inputs['storage']['target'][inputs_index]*storage_factor*size
 
     computing_cost = inputs['computing']['cost'][inputs_index]
     computing_retirement = site['computing']['retirement'][site_index] + computing_oldjunk
-    computing_target = inputs['computing']['target'][inputs_index]*size
+    computing_target = inputs['computing']['target'][inputs_index]*computing_factor*size
     
     storage = max(storage - storage_retirement,0.0)
     storage = storage + storage_fraction*budget/storage_cost
@@ -243,8 +246,9 @@ def optimize(spreadsheet, sites, outputs):
         writeReport(output, site, sitename, scenario, scenario_sheet.title, data, line)
         scenarios_debug.append([scenario['resources']['years'],debug])
         line = line + 11
+        time.sleep(120)
     retval.append(scenarios_debug)
-    time.sleep(60)
+    time.sleep(120)
   return retval
 
 def multicolor_ylabel(ax,list_of_strings,list_of_colors,axis='x',anchorpad=0,**kw):
